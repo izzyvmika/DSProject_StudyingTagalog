@@ -1,0 +1,125 @@
+---
+title: "DataScienceProject"
+author: "Izzy Mika"
+date: "2025-04-30"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Side Note: I still have additional tests (chi square goodness of fit test / other graphs if those are needed or useful.)
+
+
+## Set-up
+```{r}
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+
+```
+
+
+## Datasets
+```{r}
+filipino_stats <- read_xlsx("C:/Users/pikmi/Documents/MetroState/25 Data 211 (Data Science)/Data Project/Mika, Izzy - Stats tracking - DRAFT 2 - remove extra info.xlsx")
+```
+
+
+## Data clean-up
+
+```{r}
+
+# Clean up data 
+filipino_stats <- filipino_stats %>%
+  filter(Keep==1) %>%                     #Keep tracked words (ignore eg function words, proper nouns)
+  group_by(Day) %>%                       #Group by day / get numbers per day
+  summarize(
+    day_count = n()                       #Total words per day
+    ,Y_count = sum(Correct_YN == 'Y')     #Total correct answers per day
+    ,N_count = sum(Correct_YN == 'N')     #Total incorrect answers per day 
+    ,percent_Y = (sum(Correct_YN == 'Y')/day_count)    #Percent correct
+    ,percent_N = (sum(Correct_YN == 'N')/day_count)    #Percent incorrect     
+     
+  )
+
+# Data - Removing Day 8, 9, 10
+#---------------------------------
+# Didn't realize this until later - the video used for part of 8/10 
+#   (and all of 9) interviews people mostly speaking Bisaya(/Binisaya), which is 
+#   a related but diff language that I haven't studied before/was not studying  
+#   via the course I had. Removing from final data set to avoid wonky results.
+
+tagalog_stats <- filipino_stats %>%
+  filter(Day < 8 | Day > 10)
+
+
+#tagalog_stats
+#tagalog_stats$Y_count
+#tagalog_stats$percent_Y
+
+
+```
+
+## Prop Test - Comparing Correct vs Incorrect Answers
+
+I want to see if studying Tagalog via the LearningTagalog course for 20 min every day (over 14 days) increases the percentage of words I understand over time when reading/watching conversational Tagalog. 
+
+I'm using prop testing to test whether the proportion of correct answers is significantly greater than proportion of wrong answers. 
+
+$P_Y$ - Proportion of correct answers ("Y")
+
+$P_N$ - Proportion of incorrect answers ("N")
+
+$H_0: P_Y = P_N$
+
+$H_a: P_Y > P_N$
+
+
+```{r}
+# Test - is proportion of correct answers greater than proportion of wrong answers?
+# Sum all Ys, sum all Ns, see if Y > N
+
+allY <- sum(tagalog_stats$Y_count)
+allN <-sum(tagalog_stats$N_count)
+totalWords <-allY+allN
+
+prop.test(x=allY, n=totalWords, alternative = "greater")
+
+
+```
+
+## Conclusion
+With a $p-value = 2.2e{-16} < 0.05$, then with $5\%$ significance level, the null hypothesis can be safely rejected; which supports the hypothesis that the number of words I understood is higher than the number of words I got wrong. This combined with a line graph shows a mild positive trend over time / an increase in words understood over time. 
+
+## Plots
+
+```{r}
+
+# Plot percentage of words understood per day as a line graph.
+p <- ggplot(data = tagalog_stats, aes(x = Day, y = (percent_Y * 100)))+
+  geom_line(color="#225BC9")+
+  labs(title = 'Percent of Words Understood Per Day', x = 'Day', y = '% Words Understood')
+
+p <- p + ylim(0,100)
+
+p
+
+
+# Plot total number of correct words vs incorrect words as a bar graph.
+df <- data.frame(Words = c("Correct", "Incorrect"), Count =c(allY, allN))
+
+p2 <- ggplot(df, aes(x=Words, y=Count))+geom_bar(stat="identity", aes(fill=Words))+labs(title="Total Words Correct vs Incorrect over 11 Days", x= "Words Encountered")
+
+p2
+#plots show a small but clear positive trend
+
+
+```
+
+
